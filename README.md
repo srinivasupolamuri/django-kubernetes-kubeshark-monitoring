@@ -1,405 +1,313 @@
-<div align="center">
-
 # Django on Kubernetes with Kubeshark Monitoring
 
-**A hands-on project for deploying a containerized Django application to a local Kubernetes cluster and exploring network visibility with Kubeshark.**
+A hands-on project that deploys a Django web application to a local Kubernetes cluster with Minikube and documents how Kubeshark can be used to inspect Kubernetes network traffic.
 
-![Kubernetes](https://img.shields.io/badge/Kubernetes-orchestration-326CE5?logo=kubernetes&logoColor=white)
-![Minikube](https://img.shields.io/badge/Minikube-local%20cluster-3970E4?logo=kubernetes&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-containers-2496ED?logo=docker&logoColor=white)
-![Python](https://img.shields.io/badge/Python-Django-3776AB?logo=python&logoColor=white)
-![Kubeshark](https://img.shields.io/badge/Kubeshark-network%20visibility-5B5BD6)
+The goal is to demonstrate practical skills in containerized application deployment, Kubernetes manifests, service exposure, cluster troubleshooting, and network observability.
 
-</div>
-
----
+> **Documentation note:** The images in `images/` are illustrative panels created for this README. Treat them as visual guides, not as independently verified terminal output. Kubernetes service type, ports, pod names, and dashboard screens can differ in your environment. Use your actual manifests and live command output as the source of truth.
 
 ## Project overview
 
-This project brings together a small Django web application, Kubernetes deployment manifests, Minikube, and Kubeshark. The application is packaged as a container image and deployed to Kubernetes, where a Deployment manages replicas and a Service provides a stable way to reach the application. Kubeshark is installed in the cluster to explore pod-level network traffic and service communication.
+This project brings together:
 
-The goal is to practise the workflow an engineer uses when moving from a local container to a Kubernetes workload: define resources as YAML, deploy them with `kubectl`, verify pod and service health, access the application, and investigate network visibility.
-
-> **Current environment note:** The Django Deployment and Service manifests are present in this repository, and the captured cluster output showed two application replicas running. The Kubeshark dashboard and hub were also deployed, but the screenshots show a connectivity/licence-verification issue reaching `api.kubeshark.com`. The README documents that limitation rather than presenting traffic capture as fully verified.
-
-## What this project covers
-
-- Container image usage for a Django/Python application.
-- Kubernetes Deployments, Pods, labels, selectors, and Services.
-- Local Kubernetes practice with Minikube and `kubectl`.
-- Application access through a Kubernetes Service and Minikube port-forwarding.
-- Installing Kubeshark with Helm and opening its local dashboard.
-- Reviewing pod status, service endpoints, logs, and cluster events when troubleshooting.
-- Organising deployment configuration and evidence for a reproducible GitHub portfolio.
+- **Django** — the sample web application.
+- **Kubernetes** — manages the application workload and service.
+- **Minikube** — runs a local Kubernetes cluster for development and testing.
+- **kubectl** — applies manifests and inspects cluster resources.
+- **Helm** — installs Kubeshark from its Helm chart.
+- **Kubeshark** — provides a dashboard for selecting workloads and observing network traffic.
 
 ## Architecture
 
 ```mermaid
-flowchart TB
-    Dev["Developer workstation<br/>Linux / WSL"] --> K["kubectl"]
-    Dev --> H["Helm"]
-    K --> M["Minikube cluster"]
-    H --> M
-    M --> D["Django Deployment"]
-    D --> P1["Django Pod 1"]
-    D --> P2["Django Pod 2"]
-    S["Django Service<br/>port 80 → target port 8000"] --> P1
-    S --> P2
-    Browser["Browser / curl"] --> S
-    M --> KS["Kubeshark components"]
-    KS --> UI["Kubeshark dashboard<br/>local port-forward"]
-    P1 -. network visibility .-> KS
-    P2 -. network visibility .-> KS
+flowchart TD
+    Dev[Developer workstation / Linux or WSL]
+    CLI[kubectl and Helm]
+    Cluster[Minikube Kubernetes cluster]
+    Deploy[Django Deployment]
+    Pod1[Django Pod replica 1]
+    Pod2[Django Pod replica 2]
+    Service[Django Kubernetes Service]
+    Browser[Browser or curl]
+    KS[Kubeshark]
+    Dashboard[Kubeshark dashboard]
+
+    Dev --> CLI
+    CLI --> Cluster
+    Cluster --> Deploy
+    Deploy --> Pod1
+    Deploy --> Pod2
+    Browser --> Service
+    Service --> Pod1
+    Service --> Pod2
+    CLI --> KS
+    KS --> Cluster
+    KS --> Dashboard
 ```
 
-The diagram describes the intended design. Actual resource names and port mappings should always be checked against the YAML files in this repository before applying changes.
+The Deployment maintains the desired number of application replicas. The Service selects the matching Pods and provides a stable access point. Kubeshark is installed separately in the `kubeshark` namespace and can be configured to target the application Pods for traffic inspection.
 
-## Technology stack
+## Visual walkthrough
 
-| Technology | Purpose in this project |
-|---|---|
-| Python / Django | Web application running in the container |
-| Docker | Builds and runs the application image |
-| Kubernetes | Schedules application Pods and maintains the desired replica count |
-| Minikube | Provides a local Kubernetes cluster for development and testing |
-| `kubectl` | Applies manifests and inspects cluster resources |
-| Helm | Installs and manages the Kubeshark chart |
-| Kubeshark | Provides a dashboard for inspecting Kubernetes network traffic |
-| YAML | Defines Kubernetes Deployment and Service resources |
-| Git / GitHub | Source control and project portfolio |
+### 1. Repository structure
 
-## Repository structure
-
-The layout below reflects the files shown in the current project. The root directory also contains `deployment.yml` and `pod.yml`; the `kubernetes/` directory contains the Django-specific manifests.
+Keep Kubernetes manifests together in a dedicated directory. A practical structure for this repository is:
 
 ```text
 django-kubernetes-kubeshark-monitoring/
 ├── .gitignore
+├── README.md
 ├── deployment.yml
 ├── pod.yml
 ├── kubernetes/
 │   ├── django-deployment.yaml
 │   └── django-service.yaml
-├── monitoring/
-├── README.md
-└── docs/
-    └── screenshots/
-        ├── 01-kubeshark-dashboard.png
-        ├── 02-kubeshark-dashboard-targets.png
-        ├── 03-kubernetes-workloads.png
-        ├── 04-django-deployment-manifest.png
-        ├── 05-django-service-manifest.png
-        └── 06-kubeshark-connectivity-diagnostics.png
+└── images/
+    ├── 01-project-structure.png
+    ├── 02-minikube-status.png
+    ├── 03-kubernetes-workloads.png
+    ├── 04-django-deployment.png
+    ├── 05-django-service.png
+    ├── 06-django-browser.png
+    ├── 07-kubeshark-installation.png
+    ├── 08-kubeshark-dashboard.png
+    └── 09-kubeshark-pod-targeting.png
 ```
 
-> Keep the actual directory layout in sync with this section as the project evolves. If `monitoring/` contains additional manifests or configuration, add those filenames here.
+If `deployment.yml` or `pod.yml` is an older experiment, either document its purpose or remove it after confirming it is no longer needed. Avoid keeping multiple manifests that deploy the same application with conflicting labels, ports, or resource names.
 
-## Screenshots and implementation evidence
+![Project structure](images/01-project-structure.png)
 
-### 1. Kubeshark dashboard
+### 2. Start and verify Minikube
 
-The dashboard was opened through a local port-forward. The captured view currently shows the dashboard attempting to reconnect; it is useful evidence of the installed UI, but not proof that traffic is being captured successfully.
-
-![Kubeshark dashboard](docs/screenshots/01-kubeshark-dashboard.png)
-
-### 2. Pod targeting in Kubeshark
-
-Kubeshark lists pods that are not currently selected by its targeting configuration. The Django application pods need to be included in the target selection before they can be used as the intended capture target.
-
-![Kubeshark pod targeting view](docs/screenshots/02-kubeshark-dashboard-targets.png)
-
-### 3. Kubernetes workloads
-
-Use this view as a reference for checking the workloads deployed in the cluster. The important checks are that the application Deployment has the expected ready replicas and that the Kubeshark components are running.
-
-![Kubernetes workloads](docs/screenshots/03-kubernetes-workloads.png)
-
-### 4. Django Deployment manifest
-
-The Deployment declares the application image, container port, labels, and desired replica count. A Deployment is preferred over a standalone Pod for this workload because Kubernetes can replace failed or deleted Pods to maintain the declared state.
-
-![Django Deployment manifest](docs/screenshots/04-django-deployment-manifest.png)
-
-### 5. Django Service manifest
-
-The Service selects Pods using their labels and exposes the application through a stable Kubernetes endpoint. In the captured manifest, the Service maps port `80` to the application container's target port `8000`.
-
-![Django Service manifest](docs/screenshots/05-django-service-manifest.png)
-
-### 6. Kubeshark connectivity diagnostics
-
-The logs show attempts to reach Kubeshark's external API failing during DNS resolution, along with licence-verification errors. This is an environment/connectivity issue to resolve before claiming end-to-end traffic inspection has been validated.
-
-![Kubeshark connectivity diagnostics](docs/screenshots/06-kubeshark-connectivity-diagnostics.png)
-
-## Prerequisites
-
-Install and verify the following tools on Linux or Ubuntu under WSL:
-
-- Docker Engine or Docker Desktop with WSL integration enabled.
-- Minikube.
-- `kubectl`.
-- Helm.
-- Git.
-- Internet and DNS access for downloading images and verifying Kubeshark's licence.
-
-Check the installed tools:
-
-```bash
-docker --version
-docker info
-minikube version
-kubectl version --client
-helm version
-git --version
-```
-
-For a local Minikube cluster using Docker, the Docker daemon must be available first.
-
-## Getting started
-
-### 1. Start and verify Minikube
+Start Minikube with a driver supported by your environment. For example, on a Linux environment where Docker is installed and running:
 
 ```bash
 minikube start --driver=docker
-minikube status
 kubectl get nodes
+kubectl get pods -A
 ```
 
-The Minikube node should report `Ready` before deploying or troubleshooting workloads. If Minikube reports an unsupported or empty driver, explicitly specify `--driver=docker` and confirm Docker is running. Do not delete an existing profile unless its data is no longer needed.
+The node should report `Ready` before you rely on the cluster for deployments or packet capture.
 
-### 2. Review the manifests
+![Minikube status](images/02-minikube-status.png)
 
-From the repository root:
+**Troubleshooting tip:** If Minikube reports `DRV_UNSUPPORTED_OS` or an empty driver, specify a supported driver explicitly, such as `--driver=docker`, and verify Docker is running. Do not delete the cluster or reinstall components until you have checked the current status and driver configuration.
+
+### 3. Inspect Kubernetes workloads
+
+Use these commands to review the application and monitoring components:
 
 ```bash
-find . -maxdepth 3 -type f \
-  -not -path './.git/*' \
-  -not -path './minikube-linux-amd64' | sort
+kubectl get deployments -A
+kubectl get pods -A -o wide
+kubectl get services -A
 ```
 
-Review the application Deployment and Service:
+Confirm that the Django Deployment has the expected number of ready replicas and that the Kubeshark components are running in the `kubeshark` namespace.
 
-```bash
-cat kubernetes/django-deployment.yaml
-cat kubernetes/django-service.yaml
+![Kubernetes workloads](images/03-kubernetes-workloads.png)
+
+### 4. Django Deployment manifest
+
+The Deployment describes the desired application replica count, Pod labels, container image, and container port. Labels and selectors must match so the Service can find the application Pods.
+
+Example structure (adjust the image and container port to match your application):
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sample-python-app
+  template:
+    metadata:
+      labels:
+        app: sample-python-app
+    spec:
+      containers:
+        - name: django-app
+          image: YOUR_DJANGO_IMAGE
+          ports:
+            - containerPort: 8000
 ```
 
-Before applying them, confirm that the container image name exists and is accessible to Minikube. If the image is built locally, ensure Minikube can access it; if it is stored in a registry, confirm the tag and pull permissions.
+Replace `YOUR_DJANGO_IMAGE` with the image you actually built and made available to Minikube. Do not apply this example unchanged if your existing `kubernetes/django-deployment.yaml` already contains the correct image and settings.
 
-### 3. Deploy the Django application
+![Django Deployment manifest](images/04-django-deployment.png)
 
-Apply the manifests from the repository root:
+Apply the manifest and verify the rollout:
 
 ```bash
 kubectl apply -f kubernetes/django-deployment.yaml
-kubectl apply -f kubernetes/django-service.yaml
+kubectl rollout status deployment
+kubectl get pods -l app=sample-python-app
 ```
 
-Check rollout and resource state:
+If your Deployment is named `sample-python-app`, you can use the specific command `kubectl rollout status deployment/sample-python-app`.
+
+### 5. Django Service manifest
+
+The Service selects Pods using labels and maps a service port to the application container port. The screenshot below is a visual reference; use the service type and port values from your actual manifest.
+
+![Django Service manifest](images/05-django-service.png)
+
+Inspect the live Service before accessing the app:
 
 ```bash
-kubectl rollout status deployment/sample-python-app
-kubectl get deployments
-kubectl get pods -l app=sample-python-app -o wide
-kubectl get services
+kubectl get service
+kubectl describe service python-django-app-service
 kubectl get endpoints python-django-app-service
 ```
 
-The Deployment name and Service name above match the names visible in the captured environment. If you change the manifests, use the names defined in your own files.
+A Service with no endpoints usually means its selector does not match the Pod labels, or the Pods are not ready.
 
-### 4. Access the Django application
-
-Start a local Service tunnel:
+For a Minikube LoadBalancer service, try:
 
 ```bash
 minikube service python-django-app-service --url
 ```
 
-Use the URL returned by Minikube. Keep the command running if it establishes a tunnel, then open the URL in a browser. Alternatively, use port-forwarding:
+Keep the terminal running if Minikube indicates that it is maintaining a tunnel. Open the URL printed by the command in your browser. The exact service name must match the name in your manifest.
+
+### 6. Verify the Django application
+
+Once the Service is reachable, load the application in a browser or test the URL with `curl`:
 
 ```bash
-kubectl port-forward service/python-django-app-service 8000:80
+curl -I <application-url>
 ```
 
-Then browse to `http://127.0.0.1:8000`. If your Service port differs from `80`, adjust the command to match the manifest.
+Replace `<application-url>` with the URL returned by Minikube. A successful HTTP response confirms that the request reached an HTTP endpoint; also inspect the page and application logs to verify the Django app itself is behaving as expected.
 
-### 5. Install Kubeshark with Helm
+![Django application in browser](images/06-django-browser.png)
 
-If Kubeshark is not already installed, add its Helm repository and update chart metadata:
+Useful checks if the page does not load:
+
+```bash
+kubectl get pods -l app=sample-python-app
+kubectl logs deployment/sample-python-app --tail=100
+kubectl describe service python-django-app-service
+```
+
+Update resource names in these commands if your manifests use different names.
+
+### 7. Install Kubeshark with Helm
+
+Kubeshark is installed separately from the Django application. The following commands show the standard Helm workflow:
 
 ```bash
 helm repo add kubeshark https://helm.kubeshark.com
 helm repo update
+helm install kubeshark kubeshark/kubeshark --namespace kubeshark --create-namespace
 ```
 
-Install it into its own namespace:
-
-```bash
-helm install kubeshark kubeshark/kubeshark \
-  --namespace kubeshark \
-  --create-namespace
-```
-
-If the release already exists, inspect it instead of running the install command again:
+If the release already exists, do not run `helm install` again. Check its status first:
 
 ```bash
 helm list -n kubeshark
-kubectl get pods -n kubeshark -o wide
+kubectl get pods -n kubeshark
 kubectl get services -n kubeshark
 ```
 
-### 6. Open the Kubeshark dashboard
+![Kubeshark installation](images/07-kubeshark-installation.png)
 
-Forward the dashboard service to a local port:
+### 8. Open the Kubeshark dashboard
+
+Forward the dashboard Service to your local machine:
 
 ```bash
 kubectl port-forward -n kubeshark service/kubeshark-front 8899:80
 ```
 
-Open [http://127.0.0.1:8899](http://127.0.0.1:8899) in your browser and keep the port-forward terminal open.
+Leave this command running and open:
 
-**Security note:** Keep this dashboard bound to localhost unless you have deliberately configured authentication and network restrictions. Do not expose an unauthenticated traffic-inspection dashboard to a public network.
-
-### 7. Target the Django application pods
-
-In the Kubeshark UI, open the targeting configuration and include the `default` namespace and the Django application Pods. A pod-name pattern such as `sample-python-app-.*` may match the current Deployment-generated Pod names; verify the actual names first:
-
-```bash
-kubectl get pods -n default -l app=sample-python-app
+```text
+http://127.0.0.1:8899/
 ```
 
-Pod names can change after a rollout, so a label- or namespace-based targeting option is preferable when supported by the installed Kubeshark version. Apply the target configuration in the UI and generate application requests while observing the dashboard.
+![Kubeshark dashboard](images/08-kubeshark-dashboard.png)
 
-## Validation checklist
+Keep the dashboard bound to localhost unless you have deliberately configured authentication and network access controls. Do not expose an unauthenticated monitoring dashboard to the public internet.
 
-Use this checklist to record evidence as the project is completed:
+### 9. Select the Django Pods for capture
 
-- [ ] Minikube starts successfully and its node reports `Ready`.
-- [ ] The Django Deployment reaches its desired ready replica count.
-- [ ] The Service has endpoints that point to the application Pods.
-- [ ] The Django page responds through the Service URL or port-forward.
-- [ ] Kubeshark frontend, hub, and worker components are running.
-- [ ] The Django Pods are included in Kubeshark's target configuration.
-- [ ] Test requests appear in Kubeshark's traffic view.
-- [ ] Screenshots show the successful application response and captured traffic.
+Kubeshark may initially show that there are no Pods matching its current target selection. In the dashboard, open the Pod targeting/selection view and select the Django application Pods in the `default` namespace. The names will vary as Kubernetes creates or replaces Pods.
 
-Only mark the final two items complete after confirming the traffic is visible in the dashboard.
+![Kubeshark Pod targeting](images/09-kubeshark-pod-targeting.png)
 
-## Troubleshooting notes
-
-### Minikube reports `DRV_UNSUPPORTED_OS` or an unsupported driver
-
-The current profile may have been created with an invalid or unavailable driver. Check Docker first:
+You can list the current names with:
 
 ```bash
-docker info
+kubectl get pods -n default -l app=sample-python-app -o wide
 ```
 
-Then try:
+After selecting the correct targets, generate application traffic by refreshing the Django page or sending a request with `curl`. Check the dashboard for captured traffic. Seeing the application Pods in Kubernetes does not by itself mean they are selected as Kubeshark capture targets.
 
-```bash
-minikube start --driver=docker
-```
+### 10. Troubleshooting checklist
 
-If Docker is unavailable, fix Docker/WSL integration before retrying.
+| Symptom | Checks |
+|---|---|
+| Minikube is `NotReady` | `minikube status`, `kubectl get nodes`, and the configured Minikube driver |
+| Django Pods are not ready | `kubectl describe pod <pod-name>` and `kubectl logs <pod-name>` |
+| Service has no endpoints | Compare Service selector labels with Pod labels and check Pod readiness |
+| Browser cannot reach Django | Check the Service name/type and use `minikube service <service-name> --url` |
+| Kubeshark dashboard does not connect | Check `kubectl get pods,svc,endpoints -n kubeshark` and the Hub/Front logs |
+| Kubeshark says no Pods are targeted | Select the Django Pods in the dashboard's target selection |
+| Kubeshark reports license or internet errors | Verify DNS and internet access from the environment where Kubeshark is running; follow the current vendor guidance for account/licensing requirements |
 
-### A Kubernetes node is `NotReady`
-
-```bash
-kubectl get nodes
-kubectl describe node minikube
-kubectl get pods -A
-```
-
-Check the node conditions, events, and system Pods. Resolve node readiness before investigating application-level symptoms.
-
-### The Django Service has no endpoints
-
-```bash
-kubectl get pods -l app=sample-python-app --show-labels
-kubectl describe service python-django-app-service
-kubectl get endpoints python-django-app-service
-```
-
-The Service selector must match the labels on the application Pods. Confirm that the container listens on the target port declared by the Service.
-
-### Kubeshark dashboard displays “Retrying connection”
-
-Inspect pod readiness, endpoints, and logs:
+Useful Kubeshark diagnostics:
 
 ```bash
 kubectl get pods -n kubeshark -o wide
+kubectl get services -n kubeshark
 kubectl get endpoints -n kubeshark
 kubectl logs deployment/kubeshark-hub -n kubeshark --tail=80
 kubectl logs deployment/kubeshark-front -n kubeshark --tail=80
 ```
 
-If logs show DNS failures for `api.kubeshark.com` or licence verification errors, verify host and cluster DNS and outbound internet access. The screenshot in this repository records that issue in the current environment; it should not be interpreted as successful traffic capture.
+If the cluster itself is `NotReady`, address that first. Kubeshark's worker may not register correctly while the Kubernetes node is unhealthy.
 
-## Security and repository hygiene
+## What this project demonstrates
 
-Before pushing the project to GitHub:
-
-- Never commit `.env` files, passwords, API tokens, private keys, or kubeconfig credentials.
-- Do not commit the downloaded `minikube-linux-amd64` binary.
-- Avoid including private or customer traffic in screenshots.
-- Review `git status` before each commit.
-- Keep the dashboard local unless access control and network restrictions are in place.
-
-A suitable `.gitignore` baseline is:
-
-```gitignore
-# Local tools and environment
-minikube-linux-amd64
-.env
-.env.*
-!.env.example
-venv/
-.venv/
-__pycache__/
-*.py[cod]
-
-# Local editor and OS files
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
-```
-
-Keep any project-specific exclusions already present in your `.gitignore`.
-
-## What I learned
-
-This project provides practical experience with:
-
-- Writing and applying Kubernetes YAML manifests.
-- Using Deployments and Services to run and expose a web application.
-- Verifying application health through Pod status, rollout state, and Service endpoints.
-- Operating a local Kubernetes cluster with Minikube.
-- Installing a Kubernetes observability tool with Helm.
-- Investigating a dashboard connection problem by checking logs, endpoints, DNS, and outbound connectivity.
-- Maintaining an evidence-based technical README for a GitHub portfolio.
+- Deploying and checking a multi-replica application in Kubernetes.
+- Using labels, selectors, Deployments, and Services.
+- Accessing a local Kubernetes application through Minikube.
+- Installing and inspecting a Helm-based observability tool.
+- Selecting workloads for network traffic capture.
+- Troubleshooting Pod readiness, Service endpoints, dashboard connectivity, and DNS/internet dependencies.
+- Documenting infrastructure steps clearly for repeatable development and portfolio review.
 
 ## Next improvements
 
-- Add an application architecture diagram based on the final manifests.
-- Capture a clean screenshot of the Django page responding successfully.
-- Capture a successful Kubeshark traffic view after resolving the current connectivity issue.
-- Add readiness and liveness probes plus resource requests and limits.
-- Add automated YAML validation in GitHub Actions.
-- Document a repeatable local build process for the Django container image.
+- Add a Dockerfile and reproducible image build steps for the Django app.
+- Add readiness and liveness probes.
+- Define CPU and memory requests/limits.
+- Add Kubernetes resource cleanup instructions.
+- Capture real terminal and dashboard screenshots from a healthy run, then replace the illustrative images in this repository.
+- Add a short demo recording or a sample traffic-capture walkthrough.
 
-## References
+## Cleanup
 
-- [Kubernetes documentation](https://kubernetes.io/docs/)
-- [Minikube documentation](https://minikube.sigs.k8s.io/docs/)
-- [kubectl command reference](https://kubernetes.io/docs/reference/kubectl/)
-- [Kubernetes Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
-- [Kubernetes Services](https://kubernetes.io/docs/concepts/services-networking/service/)
-- [Helm documentation](https://helm.sh/docs/)
-- [Kubeshark documentation](https://docs.kubeshark.com/)
+When you finish testing, remove only the resources created for this project:
+
+```bash
+kubectl delete -f kubernetes/django-service.yaml
+kubectl delete -f kubernetes/django-deployment.yaml
+helm uninstall kubeshark -n kubeshark
+```
+
+If other workloads share the `kubeshark` namespace or cluster, review the resources before deleting the namespace or stopping Minikube.
+
+## Repository
+
+Suggested repository name: **`django-kubernetes-kubeshark-monitoring`**
 
 ---
 
-*This repository documents a hands-on local Kubernetes project. The screenshots are included as implementation evidence, and outstanding environment issues are called out transparently so the project can be reproduced and improved.*
+*Built as a hands-on learning project to practice Kubernetes deployment and application network observability.*
+
