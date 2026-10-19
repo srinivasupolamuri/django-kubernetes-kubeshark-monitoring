@@ -76,7 +76,8 @@ django-kubernetes-kubeshark-monitoring/
 
 If `deployment.yml` or `pod.yml` is an older experiment, either document its purpose or remove it after confirming it is no longer needed. Avoid keeping multiple manifests that deploy the same application with conflicting labels, ports, or resource names.
 
-![Project structure](images/01-project-structure.png)
+<img width="510" height="315" alt="01-project-structure" src="https://github.com/user-attachments/assets/f72f9668-4af6-4ecb-bdb1-82d509bb49a8" />
+
 
 ### 2. Start and verify Minikube
 
@@ -90,7 +91,8 @@ kubectl get pods -A
 
 The node should report `Ready` before you rely on the cluster for deployments or packet capture.
 
-![Minikube status](images/02-minikube-status.png)
+<img width="470" height="315" alt="02-minikube-status" src="https://github.com/user-attachments/assets/d52cca77-88e4-4bf0-a859-155d72169cc0" />
+
 
 **Troubleshooting tip:** If Minikube reports `DRV_UNSUPPORTED_OS` or an empty driver, specify a supported driver explicitly, such as `--driver=docker`, and verify Docker is running. Do not delete the cluster or reinstall components until you have checked the current status and driver configuration.
 
@@ -106,7 +108,8 @@ kubectl get services -A
 
 Confirm that the Django Deployment has the expected number of ready replicas and that the Kubeshark components are running in the `kubeshark` namespace.
 
-![Kubernetes workloads](images/03-kubernetes-workloads.png)
+<img width="546" height="315" alt="03-kubernetes-workloads" src="https://github.com/user-attachments/assets/b67536e2-734b-4edc-aaa2-ecc9201e96b2" />
+
 
 ### 4. Django Deployment manifest
 
@@ -138,7 +141,8 @@ spec:
 
 Replace `YOUR_DJANGO_IMAGE` with the image you actually built and made available to Minikube. Do not apply this example unchanged if your existing `kubernetes/django-deployment.yaml` already contains the correct image and settings.
 
-![Django Deployment manifest](images/04-django-deployment.png)
+<img width="510" height="410" alt="04-django-deployment" src="https://github.com/user-attachments/assets/b8e20b5a-0ad1-4d53-b15e-4eab4c424f6f" />
+
 
 Apply the manifest and verify the rollout:
 
@@ -154,7 +158,8 @@ If your Deployment is named `sample-python-app`, you can use the specific comman
 
 The Service selects Pods using labels and maps a service port to the application container port. The screenshot below is a visual reference; use the service type and port values from your actual manifest.
 
-![Django Service manifest](images/05-django-service.png)
+<img width="470" height="410" alt="05-django-service" src="https://github.com/user-attachments/assets/42ab6e58-419d-4e3f-a97e-a4aca42d749d" />
+
 
 Inspect the live Service before accessing the app:
 
@@ -184,7 +189,8 @@ curl -I <application-url>
 
 Replace `<application-url>` with the URL returned by Minikube. A successful HTTP response confirms that the request reached an HTTP endpoint; also inspect the page and application logs to verify the Django app itself is behaving as expected.
 
-![Django application in browser](images/06-django-browser.png)
+<img width="546" height="410" alt="06-django-browser" src="https://github.com/user-attachments/assets/9c8af63a-3e1a-4fac-9ccc-6f1b249c881e" />
+
 
 Useful checks if the page does not load:
 
@@ -214,7 +220,8 @@ kubectl get pods -n kubeshark
 kubectl get services -n kubeshark
 ```
 
-![Kubeshark installation](images/07-kubeshark-installation.png)
+![Uploading 07-kubeshark-installation.png…]()
+
 
 ### 8. Open the Kubeshark dashboard
 
@@ -230,7 +237,8 @@ Leave this command running and open:
 http://127.0.0.1:8899/
 ```
 
-![Kubeshark dashboard](images/08-kubeshark-dashboard.png)
+<img width="470" height="289" alt="08-kubeshark-dashboard" src="https://github.com/user-attachments/assets/3f478219-d06a-4b94-85d9-4efcc943449e" />
+
 
 Keep the dashboard bound to localhost unless you have deliberately configured authentication and network access controls. Do not expose an unauthenticated monitoring dashboard to the public internet.
 
@@ -238,7 +246,8 @@ Keep the dashboard bound to localhost unless you have deliberately configured au
 
 Kubeshark may initially show that there are no Pods matching its current target selection. In the dashboard, open the Pod targeting/selection view and select the Django application Pods in the `default` namespace. The names will vary as Kubernetes creates or replaces Pods.
 
-![Kubeshark Pod targeting](images/09-kubeshark-pod-targeting.png)
+<img width="546" height="289" alt="09-kubeshark-pod-targeting" src="https://github.com/user-attachments/assets/8e690ced-5f38-4407-9d95-a5d69ab9c4d9" />
+
 
 You can list the current names with:
 
