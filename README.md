@@ -219,11 +219,7 @@ helm list -n kubeshark
 kubectl get pods -n kubeshark
 kubectl get services -n kubeshark
 ```
-
 ![Uploading Kubeshark Installation and Access.png…]()
-
-
-
 
 ### 8. Open the Kubeshark dashboard
 
