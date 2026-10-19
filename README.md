@@ -223,6 +223,7 @@ kubectl get services -n kubeshark
 ![Uploading 07-kubeshark-installation.png…]()
 
 
+
 ### 8. Open the Kubeshark dashboard
 
 Forward the dashboard Service to your local machine:
