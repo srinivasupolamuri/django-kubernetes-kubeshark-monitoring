@@ -220,7 +220,8 @@ kubectl get pods -n kubeshark
 kubectl get services -n kubeshark
 ```
 
-![Uploading 07-kubeshark-installation.png…]()
+![Uploading Kubeshark Installation and Access.png…]()
+
 
 
 
