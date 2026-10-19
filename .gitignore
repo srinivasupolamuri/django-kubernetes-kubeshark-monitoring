@@ -1,0 +1,20 @@
+# Local Kubernetes binaries
+/kubectl
+/minikube-linux-amd64
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+kubeconfig
+
+# Generated files
+*.log

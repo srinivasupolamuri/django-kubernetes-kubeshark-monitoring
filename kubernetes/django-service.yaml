@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"python-django-app-service","namespace":"default"},"spec":{"ports":[{"nodePort":30007,"port":80,"targetPort":8000}],"selector":{"app":"sample-python-app"},"type":"NodePort"}}
+  creationTimestamp: "2026-10-18T15:54:49Z"
+  name: python-django-app-service
+  namespace: default
+  resourceVersion: "27746"
+  uid: 63386c22-0d5f-4b6a-8b51-692a05fdb438
+spec:
+  allocateLoadBalancerNodePorts: true
+  clusterIP: 10.101.255.128
+  clusterIPs:
+  - 10.101.255.128
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - nodePort: 30007
+    port: 80
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app: sample-python-app
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer: {}
